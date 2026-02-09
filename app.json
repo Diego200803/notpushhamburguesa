@@ -4,8 +4,6 @@
     "slug": "hamburguesa-push",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "scheme": "hamburguesapush",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -13,21 +11,13 @@
       "bundleIdentifier": "com.tuempresa.hamburguesapush"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.tuempresa.hamburguesapush"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
           "color": "#bd93f9",
           "sounds": []
         }
@@ -37,9 +27,11 @@
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "TU_PROJECT_ID_AQUI"
+        "projectId": "1a823d41-40b5-40f2-aa83-1ff0b2ced7cd"
       }
-    }
+    },
+    "owner": "diegofernando20083"
   }
 }

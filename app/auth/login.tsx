@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Alert, StyleSheet } from 'react-native';
 import { useAuth } from '@/lib/modules/auth/AuthProvider';
 import { useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -19,6 +20,17 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             await signInWithEmail(email, password);
+            
+            // Mostrar notificación local de éxito
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: '✅ Inicio de sesión exitoso',
+                    body: '¡Bienvenido de vuelta! Ya puedes armar hamburguesas.',
+                    sound: 'default',
+                },
+                trigger: null, // Mostrar inmediatamente
+            });
+            
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
