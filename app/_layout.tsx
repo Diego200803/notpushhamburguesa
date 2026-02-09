@@ -1,3 +1,4 @@
+import '../global';
 import { usePushNotifications } from "@/lib/core/notifications/usePushNotifications";
 import { AuthProvider, useAuth } from "@/lib/modules/auth/AuthProvider";
 import { Stack, useRouter, useSegments } from "expo-router";
