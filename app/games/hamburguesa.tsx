@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Hamburguesa3D } from '@/components/atoms/Hamburguesa3D';
+import { supabase } from '@/lib/core/supabase/client.supabase';
+import { useAuth } from '@/lib/modules/auth/AuthProvider';
+import * as Notifications from 'expo-notifications';
 
 type Ingrediente = 'carne' | 'queso' | 'tomate' | 'lechuga';
 
@@ -15,6 +18,7 @@ const INGREDIENTES_INFO: Record<Ingrediente, { emoji: string; label: string; col
 
 export default function HamburguesaScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([
     'carne',
@@ -24,6 +28,7 @@ export default function HamburguesaScreen() {
     'carne',
     'queso',
   ]);
+  const [loading, setLoading] = useState(false);
 
   const agregarIngrediente = (ingrediente: Ingrediente) => {
     setIngredientes([...ingredientes, ingrediente]);
@@ -41,6 +46,77 @@ export default function HamburguesaScreen() {
 
   const contarIngrediente = (tipo: Ingrediente) => {
     return ingredientes.filter((ing) => ing === tipo).length;
+  };
+
+  const realizarPedido = async () => {
+    if (!session?.user.id) {
+      Alert.alert('Error', 'Debes iniciar sesión para realizar un pedido');
+      return;
+    }
+
+    if (ingredientes.length === 0) {
+      Alert.alert('Error', 'Agrega al menos un ingrediente');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Contar ingredientes
+      const ingredientesCount = {
+        carne: contarIngrediente('carne'),
+        queso: contarIngrediente('queso'),
+        tomate: contarIngrediente('tomate'),
+        lechuga: contarIngrediente('lechuga'),
+      };
+
+      // Crear pedido en Supabase
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([{
+          user_id: session.user.id,
+          ingredients: ingredientesCount,
+          total_layers: ingredientes.length + 2, // +2 por los panes
+          status: 'en_preparacion'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Notificación local inmediata
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🍔 ¡Pedido Realizado!',
+          body: `Tu hamburguesa está en preparación. Total: ${ingredientes.length + 2} capas.`,
+          sound: 'default',
+        },
+        trigger: null,
+      });
+
+      Alert.alert(
+        '¡Éxito!', 
+        'Tu pedido ha sido realizado. ¡Recibirás una notificación cuando esté listo!',
+        [
+          {
+            text: 'Ver Pedidos',
+            onPress: () => router.push('/orders')
+          },
+          {
+            text: 'OK',
+            style: 'cancel'
+          }
+        ]
+      );
+
+      // Reiniciar hamburguesa
+      reiniciar();
+
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,6 +190,17 @@ export default function HamburguesaScreen() {
               <Text style={styles.actionButtonText}>Reiniciar</Text>
             </TouchableOpacity>
           </View>
+
+          {/* BOTÓN DE PEDIDO - NUEVO */}
+          <TouchableOpacity
+            style={[styles.orderButton, loading && styles.orderButtonDisabled]}
+            onPress={realizarPedido}
+            disabled={loading}
+          >
+            <Text style={styles.orderButtonText}>
+              {loading ? '🍔 Realizando pedido...' : '🍔 Realizar Pedido'}
+            </Text>
+          </TouchableOpacity>
 
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
@@ -277,6 +364,28 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#ffffff',
+  },
+  orderButton: {
+    width: '100%',
+    maxWidth: 400,
+    marginTop: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  orderButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  orderButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#ffffff',
   },
   infoBox: {

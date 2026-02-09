@@ -5,6 +5,14 @@ import Constants from 'expo-constants';
 
 export const NotificationAdapter = {
   setup: () => {
+    // Solo configurar si NO estamos en Expo Go
+    const isExpoGo = Constants.appOwnership === 'expo';
+    
+    if (isExpoGo) {
+      console.log('⚠️ Notificaciones remotas deshabilitadas en Expo Go.');
+      return;
+    }
+    
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
@@ -17,6 +25,13 @@ export const NotificationAdapter = {
   },
 
   registerForPushNotificationsAsync: async (): Promise<string | null> => {
+    const isExpoGo = Constants.appOwnership === 'expo';
+    
+    if (isExpoGo) {
+      console.log('ℹ️ Push notifications no disponibles en Expo Go');
+      return null;
+    }
+
     let token;
 
     if (Platform.OS === 'android') {
@@ -54,7 +69,7 @@ export const NotificationAdapter = {
       })).data;
 
     } else {
-      console.log('⚠️ Debes usar un dispositivo físico para probar Push Notifications');
+      console.log('⚠️ Debes usar un dispositivo físico');
     }
 
     return token || null;

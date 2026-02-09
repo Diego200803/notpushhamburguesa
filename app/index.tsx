@@ -40,6 +40,20 @@ export default function Index() {
             </Text>
           </TouchableOpacity>
 
+          {/* BOTÓN DE PEDIDOS - NUEVO */}
+          {session && (
+            <TouchableOpacity
+              style={[styles.menuButton, styles.ordersButton]}
+              onPress={() => router.push('/orders')}
+            >
+              <Text style={styles.menuIcon}>📦</Text>
+              <Text style={styles.menuTitle}>Mis Pedidos</Text>
+              <Text style={styles.menuDescription}>
+                Ver historial de hamburguesas pedidas
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {session && (
             <TouchableOpacity
               style={[styles.menuButton, styles.logoutButton]}
@@ -105,6 +119,9 @@ const styles = StyleSheet.create({
   },
   burgerButton: {
     backgroundColor: '#10b981',
+  },
+  ordersButton: {
+    backgroundColor: '#f59e0b',
   },
   logoutButton: {
     backgroundColor: '#ef4444',

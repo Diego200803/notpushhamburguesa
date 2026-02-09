@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { supabase } from '../supabase/client.supabase';
 import { NotificationAdapter } from './notification.adapter';
 
@@ -7,6 +8,13 @@ NotificationAdapter.setup();
 
 export const usePushNotifications = (userId?: string) => {
   useEffect(() => {
+    const isExpoGo = Constants.appOwnership === 'expo';
+    
+    if (isExpoGo) {
+      console.log('ℹ️ Notificaciones push remotas deshabilitadas en Expo Go. Las locales sí funcionan.');
+      return;
+    }
+    
     if (!userId) return;
 
     const register = async () => {

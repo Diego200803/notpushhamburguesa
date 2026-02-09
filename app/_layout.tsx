@@ -35,6 +35,13 @@ function AuthLayout() {
           presentation: 'card'
         }} 
       />
+      <Stack.Screen 
+        name="orders" 
+        options={{ 
+          headerShown: false,
+          presentation: 'card'
+        }} 
+      />
     </Stack>
   );
 }
