@@ -4,9 +4,10 @@ const config = getDefaultConfig(__dirname);
 
 config.resolver.assetExts.push('glb');
 
-// Agregar polyfill para Buffer
 config.resolver.extraNodeModules = {
   buffer: require.resolve('buffer/'),
 };
+
+config.resolver.sourceExts.push('cjs');
 
 module.exports = config;

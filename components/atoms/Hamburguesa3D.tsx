@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, StyleSheet, Text, Platform } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, StyleSheet, Text, Platform, ActivityIndicator } from 'react-native';
 import { GLView } from 'expo-gl';
 import { Renderer, loadAsync } from 'expo-three';
 import * as THREE from 'three';
@@ -37,48 +37,100 @@ export const Hamburguesa3D: React.FC<Hamburguesa3DProps> = ({ ingredientes }) =>
   const rendererRef = useRef<Renderer | null>(null);
   const burgerRef = useRef<THREE.Object3D[]>([]);
   const frameRef = useRef<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        <Text>🍔 Solo en móvil</Text>
+        <Text style={styles.errorText}>🍔 Solo disponible en móvil</Text>
       </View>
     );
   }
 
+  const loadModel = async (key: IngredienteKey): Promise<THREE.Object3D | null> => {
+    try {
+      const asset = Asset.fromModule(MODELOS[key]);
+      await asset.downloadAsync();
+
+      if (!asset.uri) {
+        console.warn(`No se pudo obtener URI para ${key}`);
+        return null;
+      }
+
+      console.log(`Cargando modelo: ${key} desde ${asset.uri}`);
+      
+      const model = await loadAsync(asset.uri);
+      
+      if (!model?.scene) {
+        console.warn(`Modelo ${key} no tiene escena`);
+        return null;
+      }
+
+      const cfg = INGREDIENT_CONFIG[key];
+      model.scene.scale.set(cfg.scale, cfg.scale, cfg.scale);
+
+      // Ocultar semillas/granos
+      model.scene.traverse((child: any) => {
+        if (child.isMesh) {
+          const name = child.name.toLowerCase();
+          if (
+            name.includes('seed') ||
+            name.includes('sesame') ||
+            name.includes('grain')
+          ) {
+            child.visible = false;
+          }
+        }
+      });
+
+      return model.scene;
+    } catch (err) {
+      console.error(`Error cargando modelo ${key}:`, err);
+      return null;
+    }
+  };
+
   const onContextCreate = async (gl: any) => {
-    const renderer = new Renderer({ gl });
-    renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
-    renderer.setClearColor(0xffffff);
+    try {
+      const renderer = new Renderer({ gl });
+      renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
+      renderer.setClearColor(0xffffff);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      40,
-      gl.drawingBufferWidth / gl.drawingBufferHeight,
-      0.1,
-      100
-    );
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        40,
+        gl.drawingBufferWidth / gl.drawingBufferHeight,
+        0.1,
+        100
+      );
 
-    camera.position.set(0, 1, 4);
-    camera.lookAt(0, 0, 0);
+      camera.position.set(0, 1, 4);
+      camera.lookAt(0, 0, 0);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 8, 5);
-    scene.add(light);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(5, 8, 5);
+      scene.add(light);
 
-    sceneRef.current = scene;
-    cameraRef.current = camera;
-    rendererRef.current = renderer;
+      sceneRef.current = scene;
+      cameraRef.current = camera;
+      rendererRef.current = renderer;
 
-    const loop = () => {
-      frameRef.current = requestAnimationFrame(loop);
-      burgerRef.current.forEach(o => (o.rotation.y += 0.002));
-      renderer.render(scene, camera);
-      gl.endFrameEXP();
-    };
+      const loop = () => {
+        frameRef.current = requestAnimationFrame(loop);
+        burgerRef.current.forEach(o => (o.rotation.y += 0.002));
+        renderer.render(scene, camera);
+        gl.endFrameEXP();
+      };
 
-    loop();
+      loop();
+      setLoading(false);
+    } catch (err) {
+      console.error('Error inicializando escena 3D:', err);
+      setError('Error al inicializar la escena 3D');
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -89,46 +141,44 @@ export const Hamburguesa3D: React.FC<Hamburguesa3DProps> = ({ ingredientes }) =>
     burgerRef.current = [];
 
     const build = async () => {
-      let y = 0;
+      try {
+        setLoading(true);
+        setError(null);
 
-      const stack: { key: IngredienteKey }[] = [
-        { key: 'panInf' },
-        ...ingredientes.map(i => ({ key: i })),
-        { key: 'panSup' },
-      ];
+        let y = 0;
 
-      for (const item of stack) {
-        const asset = Asset.fromModule(MODELOS[item.key]);
-        await asset.downloadAsync();
+        const stack: { key: IngredienteKey }[] = [
+          { key: 'panInf' },
+          ...ingredientes.map(i => ({ key: i })),
+          { key: 'panSup' },
+        ];
 
-        const model = await loadAsync(asset.uri);
-        if (!model?.scene) continue;
-
-        const cfg = INGREDIENT_CONFIG[item.key];
-        model.scene.scale.set(cfg.scale, cfg.scale, cfg.scale);
-
-        model.scene.traverse((child: any) => {
-          if (child.isMesh) {
-            const name = child.name.toLowerCase();
-            if (
-              name.includes('seed') ||
-              name.includes('sesame') ||
-              name.includes('grain')
-            ) {
-              child.visible = false;
-            }
+        for (const item of stack) {
+          const modelScene = await loadModel(item.key);
+          
+          if (!modelScene) {
+            console.warn(`Saltando ingrediente ${item.key} (no se pudo cargar)`);
+            continue;
           }
-        });
 
-        model.scene.position.set(0, y, 0);
-        y += cfg.height;
+          const cfg = INGREDIENT_CONFIG[item.key];
+          modelScene.position.set(0, y, 0);
+          y += cfg.height;
 
-        burgerRef.current.push(model.scene);
-        scene.add(model.scene);
+          burgerRef.current.push(modelScene);
+          scene.add(modelScene);
+        }
+
+        // Centrar la hamburguesa
+        const centerY = y / 2;
+        burgerRef.current.forEach(o => (o.position.y -= centerY));
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error construyendo hamburguesa:', err);
+        setError('Error al cargar algunos ingredientes');
+        setLoading(false);
       }
-
-      const centerY = y / 2;
-      burgerRef.current.forEach(o => (o.position.y -= centerY));
     };
 
     build();
@@ -145,6 +195,20 @@ export const Hamburguesa3D: React.FC<Hamburguesa3DProps> = ({ ingredientes }) =>
   return (
     <View style={styles.container}>
       <GLView style={styles.glView} onContextCreate={onContextCreate} />
+      
+      {loading && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={styles.loadingText}>Cargando modelo 3D...</Text>
+        </View>
+      )}
+
+      {error && !loading && (
+        <View style={styles.overlay}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+          <Text style={styles.errorSubtext}>Algunos modelos no se pudieron cargar</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -156,8 +220,42 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   glView: {
     flex: 1,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
   },
 });
